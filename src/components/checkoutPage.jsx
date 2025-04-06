@@ -408,6 +408,12 @@ function CheckoutPage() {
                       {totalAmount.toFixed(2)} ₪
                     </span>
                   </div>
+                  {/* Shipping note */}
+                  <div className="text-center mt-1">
+                    <p className="text-yellow-400 text-sm" dir="rtl">
+                      * السعر لا يشمل مصاريف الشحن
+                    </p>
+                  </div>
                 </div>
 
                 {/* Selected Payment Method Display */}

@@ -43,9 +43,12 @@ function CartPage() {
 
     loadCartFromStorage();
   }, []);
+
   // Calculate cart total
   const calculateTotal = (items) => {
-    const total = items.reduce(
+    // Only calculate total for the first 2 items
+    const firstTwoItems = items.slice(0, 2);
+    const total = firstTwoItems.reduce(
       (sum, item) => sum + item.price * item.quantity,
       0
     );
@@ -119,12 +122,25 @@ function CartPage() {
 
   // Handle checkout - Navigate to checkout page
   const handleCheckout = () => {
-    // Save the exact cart data to Yourinvitation
-    localStorage.setItem("Yourinvitation", JSON.stringify(cartItems));
+    // Only take the first 2 items from cart
+    const checkoutItems = cartItems.slice(0, 2);
+
+    // Save the limited cart data
+    localStorage.setItem("Yourinvitation", JSON.stringify(checkoutItems));
+
+    // Also update the main cart to only include the first 2 items
+    localStorage.setItem("yourcart", JSON.stringify(checkoutItems));
 
     // Navigate to checkout page
     navigate("/checkoutPage");
   };
+
+  // Check if cart has more than 2 items
+  const hasExcessItems = cartItems.length > 2;
+
+  // Display items - only first 2 will be enabled for checkout
+  const displayItems = cartItems;
+  const checkoutItems = cartItems.slice(0, 2);
 
   return (
     <div className="min-h-screen bg-black text-white">
@@ -190,13 +206,38 @@ function CartPage() {
           </div>
         ) : (
           <div>
+            {/* Warning message if more than 2 items - in Arabic */}
+            {hasExcessItems && (
+              <div
+                className="bg-yellow-600 text-white p-4 rounded-lg mb-6"
+                dir="rtl"
+              >
+                <p className="text-center font-medium">
+                  يمكنك طلب عنصرين فقط في الطلب الواحد. سيتم معالجة العناصر
+                  الأولى فقط في هذا الطلب.
+                </p>
+              </div>
+            )}
+
             {/* Cart items */}
             <div className="mb-8">
-              {cartItems.map((item) => (
+              {displayItems.map((item, index) => (
                 <div
                   key={item.id}
-                  className="flex flex-col py-4 border-b border-gray-800"
+                  className={`flex flex-col py-4 border-b border-gray-800 ${
+                    index >= 2 ? "opacity-50" : ""
+                  }`}
                 >
+                  {index === 2 && (
+                    <div
+                      className="bg-gray-800 text-white py-2 px-4 rounded-lg mb-3"
+                      dir="rtl"
+                    >
+                      <p className="text-center">
+                        العناصر أدناه لن يتم تضمينها في هذا الطلب
+                      </p>
+                    </div>
+                  )}
                   <div className="flex flex-col sm:flex-row">
                     {/* Product image */}
                     <div className="w-20 h-20 rounded-lg overflow-hidden bg-gray-900 flex-shrink-0">
@@ -226,7 +267,12 @@ function CartPage() {
                           onClick={() =>
                             updateQuantity(item.id, item.quantity - 1)
                           }
-                          className="w-8 h-8 rounded-full bg-gray-800 flex items-center justify-center hover:bg-gray-700"
+                          className={`w-8 h-8 rounded-full bg-gray-800 flex items-center justify-center ${
+                            index < 2
+                              ? "hover:bg-gray-700"
+                              : "cursor-not-allowed opacity-50"
+                          }`}
+                          disabled={index >= 2}
                         >
                           <svg
                             xmlns="http://www.w3.org/2000/svg"
@@ -250,7 +296,12 @@ function CartPage() {
                           onClick={() =>
                             updateQuantity(item.id, item.quantity + 1)
                           }
-                          className="w-8 h-8 rounded-full bg-gray-800 flex items-center justify-center hover:bg-gray-700"
+                          className={`w-8 h-8 rounded-full bg-gray-800 flex items-center justify-center ${
+                            index < 2
+                              ? "hover:bg-gray-700"
+                              : "cursor-not-allowed opacity-50"
+                          }`}
+                          disabled={index >= 2}
                         >
                           <svg
                             xmlns="http://www.w3.org/2000/svg"
@@ -291,30 +342,31 @@ function CartPage() {
                         Select size for each item:
                       </p>
                       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
-                        {Array.from({ length: item.quantity }).map(
-                          (_, index) => (
-                            <div key={index} className="flex items-center">
-                              <span className="text-sm text-gray-400 mr-2">
-                                Item {index + 1}:
-                              </span>
-                              <select
-                                value={
-                                  item.selectedSizes?.[index] || item.sizes[0]
-                                }
-                                onChange={(e) =>
-                                  updateItemSize(item.id, index, e.target.value)
-                                }
-                                className="bg-gray-800 text-white border border-gray-700 rounded px-2 py-1 text-sm"
-                              >
-                                {item.sizes.map((size) => (
-                                  <option key={size} value={size}>
-                                    {size}
-                                  </option>
-                                ))}
-                              </select>
-                            </div>
-                          )
-                        )}
+                        {Array.from({ length: item.quantity }).map((_, idx) => (
+                          <div key={idx} className="flex items-center">
+                            <span className="text-sm text-gray-400 mr-2">
+                              Item {idx + 1}:
+                            </span>
+                            <select
+                              value={item.selectedSizes?.[idx] || item.sizes[0]}
+                              onChange={(e) =>
+                                updateItemSize(item.id, idx, e.target.value)
+                              }
+                              className={`bg-gray-800 text-white border border-gray-700 rounded px-2 py-1 text-sm ${
+                                index >= 2
+                                  ? "opacity-50 cursor-not-allowed"
+                                  : ""
+                              }`}
+                              disabled={index >= 2}
+                            >
+                              {item.sizes.map((size) => (
+                                <option key={size} value={size}>
+                                  {size}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        ))}
                       </div>
                     </div>
                   )}
@@ -322,14 +374,21 @@ function CartPage() {
               ))}
             </div>
 
-            {/* Cart total - simplified to match the image */}
+            {/* Cart total - only for the first 2 items */}
             <div className="bg-gray-900 rounded-lg p-4 mb-6">
               <div className="flex justify-between items-center py-2">
-                <span className="text-lg">Total:</span>
+                <span className="text-lg">
+                  Total ({Math.min(cartItems.length, 2)} items):
+                </span>
                 <span className="text-lg font-bold">
                   {totalAmount.toFixed(2)} ₪
                 </span>
               </div>
+              {hasExcessItems && (
+                <p className="text-sm text-yellow-400 mt-2" dir="rtl">
+                  ملاحظة: المجموع يشمل فقط أول عنصرين في سلة التسوق الخاصة بك.
+                </p>
+              )}
             </div>
 
             {/* Action buttons */}
