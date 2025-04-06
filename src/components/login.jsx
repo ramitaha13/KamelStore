@@ -88,7 +88,7 @@ function LoginPage() {
         className="bg-gray-700 text-white py-2 text-center text-sm font-medium"
         dir="rtl"
       >
-        توصيل فوري خلال يومين حتى ثلاثة أيام لجميع المناطق
+        توصيل سريع خلال يومين حتى ثلاثة أيام لجميع المناطق البلاد
       </div>
 
       {/* Navigation */}
@@ -326,7 +326,7 @@ function LoginPage() {
           rel="noopener noreferrer"
           className="inline-flex items-center"
         >
-          <span>👉 نقطة استلام مجانية في كابول</span>
+          <span>اضغط هنا للحصول على عنوان محلنا في كابول 👌</span>
         </a>
       </div>
 
