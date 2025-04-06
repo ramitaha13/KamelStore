@@ -18,6 +18,7 @@ function CheckoutPage() {
     town: "",
     email: "",
     notes: "",
+    paymentMethod: "cash", // Default payment method is cash (نقدي)
   });
 
   // Form validation state
@@ -65,6 +66,14 @@ function CheckoutPage() {
         [name]: "",
       });
     }
+  };
+
+  // Handle payment method selection
+  const handlePaymentMethodChange = (method) => {
+    setFormData({
+      ...formData,
+      paymentMethod: method,
+    });
   };
 
   // Validate form before submission
@@ -302,6 +311,37 @@ function CheckoutPage() {
                   )}
                 </div>
 
+                {/* Payment Method Selection */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1 text-right">
+                    طريقة الدفع*
+                  </label>
+                  <div className="flex gap-3 justify-end">
+                    <button
+                      type="button"
+                      onClick={() => handlePaymentMethodChange("bank")}
+                      className={`border rounded-md px-4 py-2 ${
+                        formData.paymentMethod === "bank"
+                          ? "bg-white text-black border-white"
+                          : "bg-transparent border-gray-700 text-gray-300"
+                      }`}
+                    >
+                      تحويل بنكي
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handlePaymentMethodChange("cash")}
+                      className={`border rounded-md px-4 py-2 ${
+                        formData.paymentMethod === "cash"
+                          ? "bg-white text-black border-white"
+                          : "bg-transparent border-gray-700 text-gray-300"
+                      }`}
+                    >
+                      نقدي
+                    </button>
+                  </div>
+                </div>
+
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-1 text-right">
                     ملاحظات على الطلب (اختياري)
@@ -368,6 +408,14 @@ function CheckoutPage() {
                       {totalAmount.toFixed(2)} ₪
                     </span>
                   </div>
+                </div>
+
+                {/* Selected Payment Method Display */}
+                <div className="mt-2 mb-4 text-center">
+                  <p className="text-gray-300 text-sm">
+                    طريقة الدفع:{" "}
+                    {formData.paymentMethod === "cash" ? "نقدي" : "تحويل بنكي"}
+                  </p>
                 </div>
 
                 {/* Place order button - now shows loading state */}

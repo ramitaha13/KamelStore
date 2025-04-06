@@ -64,6 +64,12 @@ function OrdersManagementPage() {
     return new Date(date).toLocaleString();
   };
 
+  // Get payment method display text
+  const getPaymentMethodText = (paymentMethod) => {
+    if (!paymentMethod) return "غير محدد";
+    return paymentMethod === "cash" ? "نقدي" : "تحويل بنكي";
+  };
+
   // View order details
   const viewOrderDetails = (order) => {
     setSelectedOrder(order);
@@ -177,6 +183,9 @@ function OrdersManagementPage() {
                       المجموع
                     </th>
                     <th className="px-6 py-3 text-right text-sm font-medium">
+                      طريقة الدفع
+                    </th>
+                    <th className="px-6 py-3 text-right text-sm font-medium">
                       الحالة
                     </th>
                     <th className="px-6 py-3 text-right text-sm font-medium">
@@ -201,6 +210,11 @@ function OrdersManagementPage() {
                       </td>
                       <td className="px-6 py-4 text-sm font-medium">
                         {order.totalAmount?.toFixed(2) || 0} ₪
+                      </td>
+                      <td className="px-6 py-4 text-sm">
+                        {getPaymentMethodText(
+                          order.customerInfo?.paymentMethod
+                        )}
                       </td>
                       <td className="px-6 py-4">
                         <span
@@ -290,6 +304,12 @@ function OrdersManagementPage() {
                         {selectedOrder.customerInfo.email}
                       </p>
                     )}
+                    <p>
+                      <span className="text-gray-600">طريقة الدفع:</span>{" "}
+                      {getPaymentMethodText(
+                        selectedOrder.customerInfo?.paymentMethod
+                      )}
+                    </p>
                     {selectedOrder.customerInfo?.notes && (
                       <p>
                         <span className="text-gray-600">ملاحظات:</span>{" "}
@@ -324,6 +344,20 @@ function OrdersManagementPage() {
                     <p>
                       <span className="text-gray-600">المبلغ الإجمالي:</span>{" "}
                       {selectedOrder.totalAmount?.toFixed(2) || 0} ₪
+                    </p>
+                    <p>
+                      <span className="text-gray-600">طريقة الدفع:</span>{" "}
+                      <span
+                        className={`font-medium ${
+                          selectedOrder.customerInfo?.paymentMethod === "bank"
+                            ? "text-blue-600"
+                            : "text-green-600"
+                        }`}
+                      >
+                        {getPaymentMethodText(
+                          selectedOrder.customerInfo?.paymentMethod
+                        )}
+                      </span>
                     </p>
                   </div>
                 </div>
