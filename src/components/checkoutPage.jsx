@@ -384,7 +384,7 @@ function CheckoutPage() {
                       Processing...
                     </>
                   ) : (
-                    "Place Order"
+                    "ارسال الطلب"
                   )}
                 </button>
               </div>
