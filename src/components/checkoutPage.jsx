@@ -24,16 +24,28 @@ function CheckoutPage() {
   // Form validation state
   const [errors, setErrors] = useState({});
 
-  // Load cart data from localStorage on component mount
+  // Load cart data from sessionStorage first, then try localStorage as fallback
   useEffect(() => {
     const loadCartFromStorage = () => {
       try {
+        // First try to get data from sessionStorage (this comes from the checkout button in CartPage)
+        const storedCheckoutCart = sessionStorage.getItem("Yourinvitation");
+
+        if (storedCheckoutCart) {
+          const parsedCheckoutCart = JSON.parse(storedCheckoutCart);
+          setCartItems(parsedCheckoutCart);
+          calculateTotal(parsedCheckoutCart);
+          setLoading(false);
+          return;
+        }
+
+        // Fallback to localStorage (regular cart data)
         const storedCart = JSON.parse(localStorage.getItem("yourcart")) || [];
         setCartItems(storedCart);
         calculateTotal(storedCart);
         setLoading(false);
       } catch (error) {
-        console.error("Error loading cart from localStorage:", error);
+        console.error("Error loading cart data:", error);
         setCartItems([]);
         setLoading(false);
       }
@@ -106,11 +118,13 @@ function CheckoutPage() {
     return Object.keys(newErrors).length === 0;
   };
 
-  // Safely store data in localStorage with fallback for quota exceeded errors
-  const safelyStoreInLocalStorage = (key, data) => {
+  // Safely store data in storage with fallback for quota exceeded errors
+  const safelyStoreData = (key, data, useSession = false) => {
+    const storage = useSession ? sessionStorage : localStorage;
+
     try {
       // Try to store the complete data
-      localStorage.setItem(key, JSON.stringify(data));
+      storage.setItem(key, JSON.stringify(data));
     } catch (error) {
       if (
         error instanceof DOMException &&
@@ -132,17 +146,17 @@ function CheckoutPage() {
         };
 
         try {
-          localStorage.setItem(key, JSON.stringify(minimalData));
+          storage.setItem(key, JSON.stringify(minimalData));
         } catch (fallbackError) {
           console.error(
             "Failed to store even minimal order data:",
             fallbackError
           );
           // Just store the order ID as last resort
-          localStorage.setItem(key, data.id);
+          storage.setItem(key, data.id);
         }
       } else {
-        console.error("Error storing order in localStorage:", error);
+        console.error("Error storing order data:", error);
       }
     }
   };
@@ -173,19 +187,34 @@ function CheckoutPage() {
       const orderId = newOrderRef.key;
       console.log("Order saved with ID: ", orderId);
 
-      // Safely store order data with ID in localStorage
-      safelyStoreInLocalStorage("currentOrder", {
-        ...orderData,
-        id: orderId,
-      });
+      // Safely store order data with ID in sessionStorage first (for immediate access)
+      safelyStoreData(
+        "currentOrder",
+        {
+          ...orderData,
+          id: orderId,
+        },
+        true
+      );
 
-      // Clear cart
+      // Also store in localStorage for persistence across sessions
+      safelyStoreData(
+        "lastCompletedOrder",
+        {
+          ...orderData,
+          id: orderId,
+        },
+        false
+      );
+
+      // Clear cart data from both storage types
       localStorage.removeItem("yourcart");
+      sessionStorage.removeItem("Yourinvitation");
 
       // Show success message (optional)
       alert("Order placed successfully!");
 
-      // Redirect to confirmation page with ID as query parameter in case localStorage fails
+      // Redirect to confirmation page with ID as query parameter in case storage fails
       navigate(`/order-confirmation?orderId=${orderId}`);
     } catch (error) {
       console.error("Error adding order to Realtime Database: ", error);

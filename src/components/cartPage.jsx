@@ -120,11 +120,17 @@ function CartPage() {
 
   // Handle checkout - Navigate to checkout page with ALL items
   const handleCheckout = () => {
-    // Save all cart data for checkout
-    localStorage.setItem("Yourinvitation", JSON.stringify(cartItems));
+    try {
+      // Save all cart data for checkout using sessionStorage instead of localStorage
+      sessionStorage.setItem("Yourinvitation", JSON.stringify(cartItems));
 
-    // Navigate to checkout page
-    navigate("/checkoutPage");
+      // Navigate to checkout page
+      navigate("/checkoutPage");
+    } catch (error) {
+      console.error("Error saving cart data to sessionStorage:", error);
+      // Fallback approach - navigate but with an error parameter
+      navigate("/checkoutPage?dataError=true");
+    }
   };
 
   return (
