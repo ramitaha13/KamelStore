@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { collection, addDoc, serverTimestamp } from "firebase/firestore";
-import { db } from "../firebase"; // Import your existing Firestore instance
+import { ref, push, serverTimestamp } from "firebase/database";
+import { db1 } from "../firebase";
 
 function CheckoutPage() {
   const navigate = useNavigate();
@@ -106,6 +106,47 @@ function CheckoutPage() {
     return Object.keys(newErrors).length === 0;
   };
 
+  // Safely store data in localStorage with fallback for quota exceeded errors
+  const safelyStoreInLocalStorage = (key, data) => {
+    try {
+      // Try to store the complete data
+      localStorage.setItem(key, JSON.stringify(data));
+    } catch (error) {
+      if (
+        error instanceof DOMException &&
+        // Detect quota exceeded error
+        (error.name === "QuotaExceededError" ||
+          error.name === "NS_ERROR_DOM_QUOTA_REACHED")
+      ) {
+        console.warn(
+          "Storage quota exceeded. Storing minimal order data instead."
+        );
+
+        // Create a minimal version with just the essential information
+        const minimalData = {
+          id: data.id,
+          customerInfo: data.customerInfo,
+          totalAmount: data.totalAmount,
+          status: data.status,
+          itemCount: data.items ? data.items.length : 0,
+        };
+
+        try {
+          localStorage.setItem(key, JSON.stringify(minimalData));
+        } catch (fallbackError) {
+          console.error(
+            "Failed to store even minimal order data:",
+            fallbackError
+          );
+          // Just store the order ID as last resort
+          localStorage.setItem(key, data.id);
+        }
+      } else {
+        console.error("Error storing order in localStorage:", error);
+      }
+    }
+  };
+
   // Handle form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -126,18 +167,17 @@ function CheckoutPage() {
         status: "pending", // You can add initial status
       };
 
-      // Save to Firestore under "OrdersStore" collection
-      const docRef = await addDoc(collection(db, "OrdersStore"), orderData);
-      console.log("Order saved with ID: ", docRef.id);
+      // Save to Realtime Database under "OrdersStore" path
+      const ordersRef = ref(db1, "OrdersStore");
+      const newOrderRef = await push(ordersRef, orderData);
+      const orderId = newOrderRef.key;
+      console.log("Order saved with ID: ", orderId);
 
-      // Save the complete order with ID to localStorage
-      localStorage.setItem(
-        "currentOrder",
-        JSON.stringify({
-          ...orderData,
-          id: docRef.id,
-        })
-      );
+      // Safely store order data with ID in localStorage
+      safelyStoreInLocalStorage("currentOrder", {
+        ...orderData,
+        id: orderId,
+      });
 
       // Clear cart
       localStorage.removeItem("yourcart");
@@ -145,10 +185,10 @@ function CheckoutPage() {
       // Show success message (optional)
       alert("Order placed successfully!");
 
-      // Redirect to confirmation page
-      navigate("/order-confirmation");
+      // Redirect to confirmation page with ID as query parameter in case localStorage fails
+      navigate(`/order-confirmation?orderId=${orderId}`);
     } catch (error) {
-      console.error("Error adding order to Firestore: ", error);
+      console.error("Error adding order to Realtime Database: ", error);
       alert("There was an error placing your order. Please try again.");
       setSubmitting(false);
     }

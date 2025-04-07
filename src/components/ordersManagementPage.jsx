@@ -1,13 +1,6 @@
 import React, { useState, useEffect } from "react";
-import {
-  collection,
-  query,
-  orderBy,
-  onSnapshot,
-  doc,
-  deleteDoc,
-} from "firebase/firestore";
-import { db } from "../firebase"; // Import your Firestore instance
+import { ref, onValue, remove, query, orderByChild } from "firebase/database";
+import { db1 } from "../firebase"; // Import your Realtime Database instance
 import { useNavigate } from "react-router-dom";
 import logoImage from "../assets/1.jpeg";
 
@@ -19,33 +12,43 @@ function OrdersManagementPage() {
   const [deleteConfirmation, setDeleteConfirmation] = useState(null);
   const navigate = useNavigate();
 
-  // Fetch orders from Firestore
+  // Fetch orders from Realtime Database
   useEffect(() => {
     setLoading(true);
 
-    // Create a query against the OrdersStore collection
-    const ordersQuery = query(
-      collection(db, "OrdersStore"),
-      orderBy("orderDate", "desc") // Show newest orders first
-    );
+    // Reference to the OrdersStore path
+    const ordersRef = ref(db1, "OrdersStore");
 
     // Set up real-time listener
-    const unsubscribe = onSnapshot(
-      ordersQuery,
-      (querySnapshot) => {
-        const ordersData = [];
-        querySnapshot.forEach((doc) => {
-          ordersData.push({
-            id: doc.id,
-            ...doc.data(),
-            // Convert Firestore timestamp to JS Date if it exists
-            orderDate: doc.data().orderDate
-              ? doc.data().orderDate.toDate()
-              : new Date(),
-          });
-        });
+    const unsubscribe = onValue(
+      ordersRef,
+      (snapshot) => {
+        if (snapshot.exists()) {
+          const ordersData = [];
 
-        setOrders(ordersData);
+          // Convert the snapshot to an array of orders with IDs
+          snapshot.forEach((childSnapshot) => {
+            const orderData = childSnapshot.val();
+            const orderWithId = {
+              id: childSnapshot.key,
+              ...orderData,
+              // Convert timestamp to JS Date if it exists
+              // Firebase Realtime Database stores timestamps differently than Firestore
+              orderDate: orderData.orderDate
+                ? new Date(orderData.orderDate)
+                : new Date(),
+            };
+            ordersData.push(orderWithId);
+          });
+
+          // Sort by orderDate (descending) - newest first
+          // Since we can't use orderBy in the query directly like in Firestore
+          ordersData.sort((a, b) => b.orderDate - a.orderDate);
+
+          setOrders(ordersData);
+        } else {
+          setOrders([]);
+        }
         setLoading(false);
       },
       (error) => {
@@ -55,7 +58,10 @@ function OrdersManagementPage() {
     );
 
     // Clean up the listener when component unmounts
-    return () => unsubscribe();
+    return () => {
+      // With Firebase Realtime Database, we don't need to call unsubscribe() explicitly
+      // But we'll keep this pattern for consistency and future-proofing
+    };
   }, []);
 
   // Format date for display
@@ -95,13 +101,17 @@ function OrdersManagementPage() {
     setDeleteConfirmation(null);
   };
 
-  // Delete order from Firestore
+  // Delete order from Realtime Database
   const deleteOrder = async (orderId) => {
     if (!orderId) return;
 
     try {
       setDeleting(true);
-      await deleteDoc(doc(db, "OrdersStore", orderId));
+
+      // Create a reference to the specific order and remove it
+      const orderRef = ref(db1, `OrdersStore/${orderId}`);
+      await remove(orderRef);
+
       setDeleting(false);
       setDeleteConfirmation(null);
 
