@@ -7,11 +7,11 @@ function CartPage() {
   const [loading, setLoading] = useState(true);
   const [totalAmount, setTotalAmount] = useState(0);
 
-  // Load cart data from localStorage on component mount
+  // Load cart data from sessionStorage on component mount
   useEffect(() => {
     const loadCartFromStorage = () => {
       try {
-        const storedCart = JSON.parse(localStorage.getItem("yourcart")) || [];
+        const storedCart = JSON.parse(sessionStorage.getItem("yourcart")) || [];
         // Ensure each item has a selectedSizes array initialized with the first size from sizes array
         const cartWithSelectedSizes = storedCart.map((item) => {
           if (item.sizes && item.sizes.length > 0) {
@@ -31,11 +31,14 @@ function CartPage() {
         });
         setCartItems(cartWithSelectedSizes);
         calculateTotal(cartWithSelectedSizes);
-        // Save the updated cart back to localStorage to ensure defaults are stored
-        localStorage.setItem("yourcart", JSON.stringify(cartWithSelectedSizes));
+        // Save the updated cart back to sessionStorage to ensure defaults are stored
+        sessionStorage.setItem(
+          "yourcart",
+          JSON.stringify(cartWithSelectedSizes)
+        );
         setLoading(false);
       } catch (error) {
-        console.error("Error loading cart from localStorage:", error);
+        console.error("Error loading cart from sessionStorage:", error);
         setCartItems([]);
         setLoading(false);
       }
@@ -84,7 +87,26 @@ function CartPage() {
     });
 
     setCartItems(updatedCart);
-    localStorage.setItem("yourcart", JSON.stringify(updatedCart));
+    try {
+      sessionStorage.setItem("yourcart", JSON.stringify(updatedCart));
+    } catch (error) {
+      console.error("Error saving cart to sessionStorage:", error);
+      // If basic save fails, try minimal data save
+      try {
+        const minimalData = updatedCart.map((item) => ({
+          id: item.id,
+          name: item.name,
+          price: item.price,
+          quantity: item.quantity,
+          sizes: item.sizes,
+          selectedSizes: item.selectedSizes,
+          image: item.image,
+        }));
+        sessionStorage.setItem("yourcart", JSON.stringify(minimalData));
+      } catch (fallbackError) {
+        console.error("Even minimal cart storage failed:", fallbackError);
+      }
+    }
     calculateTotal(updatedCart);
   };
 
@@ -100,35 +122,59 @@ function CartPage() {
     });
 
     setCartItems(updatedCart);
-    localStorage.setItem("yourcart", JSON.stringify(updatedCart));
+    try {
+      sessionStorage.setItem("yourcart", JSON.stringify(updatedCart));
+    } catch (error) {
+      console.error("Error saving size update to sessionStorage:", error);
+    }
   };
 
   // Remove item from cart
   const removeItem = (id) => {
     const updatedCart = cartItems.filter((item) => item.id !== id);
     setCartItems(updatedCart);
-    localStorage.setItem("yourcart", JSON.stringify(updatedCart));
+    try {
+      sessionStorage.setItem("yourcart", JSON.stringify(updatedCart));
+    } catch (error) {
+      console.error("Error removing item from sessionStorage:", error);
+    }
     calculateTotal(updatedCart);
   };
 
   // Clear entire cart
   const clearCart = () => {
     setCartItems([]);
-    localStorage.removeItem("yourcart");
+    sessionStorage.removeItem("yourcart");
+    sessionStorage.removeItem("Yourinvitation"); // Also clear Yourinvitation when clearing the cart
     setTotalAmount(0);
   };
 
-  // Handle checkout - Navigate to checkout page with ALL items
+  // Handle checkout - Only navigate to checkout with state data, no session storage
   const handleCheckout = () => {
     try {
-      // Save all cart data for checkout using sessionStorage instead of localStorage
-      sessionStorage.setItem("Yourinvitation", JSON.stringify(cartItems));
+      // Check if cart has items
+      if (cartItems.length === 0) {
+        alert("Your cart is empty!");
+        return;
+      }
 
-      // Navigate to checkout page
-      navigate("/checkoutPage");
+      // Optimize cart data for passing to checkout page
+      const optimizedCart = cartItems.map((item) => ({
+        id: item.id,
+        name: item.name,
+        price: item.price,
+        quantity: item.quantity,
+        sizes: item.sizes,
+        selectedSizes: item.selectedSizes,
+        image: item.image,
+      }));
+
+      // Navigate to checkout page with the cartData as state
+      navigate("/checkoutPage", { state: { cartData: optimizedCart } });
     } catch (error) {
-      console.error("Error saving cart data to sessionStorage:", error);
-      // Fallback approach - navigate but with an error parameter
+      console.error("Error processing checkout:", error);
+
+      // If there's an error, try navigating with a flag
       navigate("/checkoutPage?dataError=true");
     }
   };

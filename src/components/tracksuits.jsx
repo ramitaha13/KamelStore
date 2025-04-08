@@ -13,11 +13,16 @@ function TracksuitsPage() {
     setSidebarOpen(!sidebarOpen);
   };
 
-  // Initialize cart count from localStorage when component mounts
+  // Initialize cart count from sessionStorage when component mounts
   useEffect(() => {
-    const cart = JSON.parse(localStorage.getItem("yourcart")) || [];
-    const totalItems = cart.reduce((total, item) => total + item.quantity, 0);
-    setCartCount(totalItems);
+    try {
+      const cart = JSON.parse(sessionStorage.getItem("yourcart")) || [];
+      const totalItems = cart.reduce((total, item) => total + item.quantity, 0);
+      setCartCount(totalItems);
+    } catch (error) {
+      console.error("Error loading cart count:", error);
+      setCartCount(0);
+    }
   }, []);
 
   // Fetch products from Firestore
@@ -56,44 +61,51 @@ function TracksuitsPage() {
 
   // Add to Cart Handler Function
   const handleAddToCart = (product) => {
-    // Get existing cart from localStorage or initialize empty array
-    const existingCart = JSON.parse(localStorage.getItem("yourcart")) || [];
+    try {
+      // Get existing cart from sessionStorage or initialize empty array
+      const existingCart = JSON.parse(sessionStorage.getItem("yourcart")) || [];
 
-    // Create product object with essential details
-    const cartItem = {
-      id: product.id,
-      name: product.name,
-      price: product.price,
-      image: product.image,
-      quantity: 1, // Default quantity
-      sizes: product.sizes,
-    };
+      // Create product object with essential details
+      const cartItem = {
+        id: product.id,
+        name: product.name,
+        price: product.price,
+        image: product.image,
+        quantity: 1, // Default quantity
+        sizes: product.sizes,
+      };
 
-    // Check if product already exists in cart
-    const existingItemIndex = existingCart.findIndex(
-      (item) => item.id === product.id
-    );
+      // Check if product already exists in cart
+      const existingItemIndex = existingCart.findIndex(
+        (item) => item.id === product.id
+      );
 
-    if (existingItemIndex !== -1) {
-      // If item exists, increase quantity
-      existingCart[existingItemIndex].quantity += 1;
-    } else {
-      // Otherwise add new item
-      existingCart.push(cartItem);
+      if (existingItemIndex !== -1) {
+        // If item exists, increase quantity
+        existingCart[existingItemIndex].quantity += 1;
+      } else {
+        // Otherwise add new item
+        existingCart.push(cartItem);
+      }
+
+      // Save updated cart to sessionStorage
+      sessionStorage.setItem("yourcart", JSON.stringify(existingCart));
+
+      // Update cart count state with total items including quantities
+      const totalItems = existingCart.reduce(
+        (total, item) => total + item.quantity,
+        0
+      );
+      setCartCount(totalItems);
+
+      // Show confirmation to user
+      alert(`Added ${product.name} to cart!`);
+    } catch (error) {
+      console.error("Error adding item to cart:", error);
+      alert(
+        "There was an error adding the item to your cart. Please try again."
+      );
     }
-
-    // Save updated cart to localStorage
-    localStorage.setItem("yourcart", JSON.stringify(existingCart));
-
-    // Update cart count state with total items including quantities
-    const totalItems = existingCart.reduce(
-      (total, item) => total + item.quantity,
-      0
-    );
-    setCartCount(totalItems);
-
-    // Show confirmation to user
-    alert(`Added ${product.name} to cart!`);
   };
 
   return (

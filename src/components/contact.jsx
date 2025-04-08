@@ -18,11 +18,16 @@ function ContactPage() {
     setSidebarOpen(!sidebarOpen);
   };
 
-  // Initialize cart count from localStorage when component mounts
+  // Initialize cart count from sessionStorage when component mounts
   useEffect(() => {
-    const cart = JSON.parse(localStorage.getItem("yourcart")) || [];
-    const totalItems = cart.reduce((total, item) => total + item.quantity, 0);
-    setCartCount(totalItems);
+    try {
+      const cart = JSON.parse(sessionStorage.getItem("yourcart")) || [];
+      const totalItems = cart.reduce((total, item) => total + item.quantity, 0);
+      setCartCount(totalItems);
+    } catch (error) {
+      console.error("Error loading cart count:", error);
+      setCartCount(0);
+    }
   }, []);
 
   const handleChange = (e) => {

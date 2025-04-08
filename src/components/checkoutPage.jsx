@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { ref, push, serverTimestamp } from "firebase/database";
 import { db1 } from "../firebase";
 
 function CheckoutPage() {
+  const location = useLocation();
   const navigate = useNavigate();
   const [cartItems, setCartItems] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -24,35 +25,31 @@ function CheckoutPage() {
   // Form validation state
   const [errors, setErrors] = useState({});
 
-  // Load cart data from sessionStorage first, then try localStorage as fallback
+  // Load cart data from location state
   useEffect(() => {
-    const loadCartFromStorage = () => {
+    const loadCartData = () => {
       try {
-        // First try to get data from sessionStorage (this comes from the checkout button in CartPage)
-        const storedCheckoutCart = sessionStorage.getItem("Yourinvitation");
+        // Get data directly from location state
+        const data = location.state?.cartData;
 
-        if (storedCheckoutCart) {
-          const parsedCheckoutCart = JSON.parse(storedCheckoutCart);
-          setCartItems(parsedCheckoutCart);
-          calculateTotal(parsedCheckoutCart);
-          setLoading(false);
-          return;
+        if (data && data.length > 0) {
+          setCartItems(data);
+          calculateTotal(data);
+        } else {
+          // If no data is passed in location state, show empty cart
+          console.error("No cart data received from CartPage");
+          setCartItems([]);
         }
-
-        // Fallback to localStorage (regular cart data)
-        const storedCart = JSON.parse(localStorage.getItem("yourcart")) || [];
-        setCartItems(storedCart);
-        calculateTotal(storedCart);
         setLoading(false);
       } catch (error) {
-        console.error("Error loading cart data:", error);
+        console.error("Error processing cart data:", error);
         setCartItems([]);
         setLoading(false);
       }
     };
 
-    loadCartFromStorage();
-  }, []);
+    loadCartData();
+  }, [location.state]);
 
   // Calculate cart total
   const calculateTotal = (items) => {
@@ -118,49 +115,6 @@ function CheckoutPage() {
     return Object.keys(newErrors).length === 0;
   };
 
-  // Safely store data in storage with fallback for quota exceeded errors
-  const safelyStoreData = (key, data, useSession = false) => {
-    const storage = useSession ? sessionStorage : localStorage;
-
-    try {
-      // Try to store the complete data
-      storage.setItem(key, JSON.stringify(data));
-    } catch (error) {
-      if (
-        error instanceof DOMException &&
-        // Detect quota exceeded error
-        (error.name === "QuotaExceededError" ||
-          error.name === "NS_ERROR_DOM_QUOTA_REACHED")
-      ) {
-        console.warn(
-          "Storage quota exceeded. Storing minimal order data instead."
-        );
-
-        // Create a minimal version with just the essential information
-        const minimalData = {
-          id: data.id,
-          customerInfo: data.customerInfo,
-          totalAmount: data.totalAmount,
-          status: data.status,
-          itemCount: data.items ? data.items.length : 0,
-        };
-
-        try {
-          storage.setItem(key, JSON.stringify(minimalData));
-        } catch (fallbackError) {
-          console.error(
-            "Failed to store even minimal order data:",
-            fallbackError
-          );
-          // Just store the order ID as last resort
-          storage.setItem(key, data.id);
-        }
-      } else {
-        console.error("Error storing order data:", error);
-      }
-    }
-  };
-
   // Handle form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -172,13 +126,38 @@ function CheckoutPage() {
     try {
       setSubmitting(true);
 
+      // Clean cart items to prevent Firebase errors with undefined values
+      const cleanCartItems = cartItems.map((item) => {
+        // Create a copy of the item without referencing the original
+        const cleanItem = { ...item };
+
+        // Firebase doesn't accept undefined values, so let's fix selectedSizes if necessary
+        if (!cleanItem.selectedSizes) {
+          cleanItem.selectedSizes = []; // Replace undefined with empty array
+        } else {
+          // Make sure there are no undefined values within the array
+          cleanItem.selectedSizes = cleanItem.selectedSizes.map((size) =>
+            size === undefined ? "" : size
+          ); // Replace undefined with empty string
+        }
+
+        // Check for any other potential undefined values in common fields
+        if (cleanItem.name === undefined) cleanItem.name = "";
+        if (cleanItem.price === undefined) cleanItem.price = 0;
+        if (cleanItem.quantity === undefined) cleanItem.quantity = 0;
+        if (cleanItem.image === undefined) cleanItem.image = "";
+        if (cleanItem.sizes === undefined) cleanItem.sizes = [];
+
+        return cleanItem;
+      });
+
       // Combine order information (cart items + customer details)
       const orderData = {
         customerInfo: formData,
-        items: cartItems,
+        items: cleanCartItems,
         totalAmount: totalAmount,
         orderDate: serverTimestamp(),
-        status: "pending", // You can add initial status
+        status: "pending",
       };
 
       // Save to Realtime Database under "OrdersStore" path
@@ -187,35 +166,14 @@ function CheckoutPage() {
       const orderId = newOrderRef.key;
       console.log("Order saved with ID: ", orderId);
 
-      // Safely store order data with ID in sessionStorage first (for immediate access)
-      safelyStoreData(
-        "currentOrder",
-        {
-          ...orderData,
-          id: orderId,
-        },
-        true
-      );
+      // Clear all data from sessionStorage
+      sessionStorage.clear();
 
-      // Also store in localStorage for persistence across sessions
-      safelyStoreData(
-        "lastCompletedOrder",
-        {
-          ...orderData,
-          id: orderId,
-        },
-        false
-      );
+      // Show success message
+      alert("تم تقديم الطلب بنجاح!");
 
-      // Clear cart data from both storage types
-      localStorage.removeItem("yourcart");
-      sessionStorage.removeItem("Yourinvitation");
-
-      // Show success message (optional)
-      alert("Order placed successfully!");
-
-      // Redirect to confirmation page with ID as query parameter in case storage fails
-      navigate(`/order-confirmation?orderId=${orderId}`);
+      // Redirect to home page
+      navigate("/home");
     } catch (error) {
       console.error("Error adding order to Realtime Database: ", error);
       alert("There was an error placing your order. Please try again.");
@@ -455,11 +413,12 @@ function CheckoutPage() {
                           <p className="text-sm text-gray-400">
                             {item.quantity} × {item.price.toFixed(2)} ₪
                           </p>
-                          {item.selectedSizes && (
-                            <p className="text-xs text-gray-500">
-                              Sizes: {item.selectedSizes.join(", ")}
-                            </p>
-                          )}
+                          {item.selectedSizes &&
+                            item.selectedSizes.length > 0 && (
+                              <p className="text-xs text-gray-500">
+                                Sizes: {item.selectedSizes.join(", ")}
+                              </p>
+                            )}
                         </div>
                       </div>
                       <p className="font-medium">
